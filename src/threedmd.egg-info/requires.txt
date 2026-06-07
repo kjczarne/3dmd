@@ -1,0 +1,12 @@
+mistune>=3.0
+click>=8.1
+rich>=13.0
+
+[dev]
+pytest>=8.0
+pytest-cov
+ruff
+mypy
+
+[llm]
+anthropic>=0.25

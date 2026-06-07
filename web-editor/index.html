@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3DMarkdown Editor</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@4/marked.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #1a1b1e;
+    --surface:   #25262b;
+    --border:    #373a40;
+    --accent:    #748ffc;
+    --accent-dim:#4c6ef5;
+    --text:      #c1c2c5;
+    --text-dim:  #5c5f66;
+    --text-muted:#868e96;
+    --hidden-bg: #2c2e33;
+    --tag-color: #fab005;
+    --font-mono: "JetBrains Mono", "Fira Mono", "Cascadia Code", monospace;
+    --font-ui:   -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Toolbar ─────────────────────────────────────────────────────────── */
+
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  #toolbar h1 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.03em;
+    margin-right: 8px;
+  }
+
+  .tb-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tb-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  #depth-slider {
+    width: 140px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  #depth-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 3ch;
+    text-align: center;
+  }
+
+  button.tb-btn {
+    background: var(--border);
+    color: var(--text);
+    border: none;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button.tb-btn:hover { background: var(--accent-dim); color: #fff; }
+
+  #open-btn { position: relative; overflow: hidden; }
+  #open-btn input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+
+  #filename {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-style: italic;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Main panes ──────────────────────────────────────────────────────── */
+
+  #main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  #editor-pane, #preview-pane {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+
+  .pane-header {
+    padding: 4px 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #editor {
+    flex: 1;
+    resize: none;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.65;
+    padding: 16px;
+    border: none;
+    outline: none;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  #preview {
+    flex: 1;
+    overflow: auto;
+    padding: 20px 28px;
+    line-height: 1.7;
+    font-size: 0.92rem;
+  }
+
+  /* ── Preview typography ───────────────────────────────────────────────── */
+
+  #preview h1 { font-size: 1.5rem; margin: 1.2em 0 0.5em; color: #e9ecef; }
+  #preview h2 { font-size: 1.2rem; margin: 1.1em 0 0.4em; color: #dee2e6; border-bottom: 1px solid var(--border); padding-bottom: 3px; }
+  #preview h3 { font-size: 1rem;   margin: 1em 0 0.3em;   color: #ced4da; }
+  #preview p  { margin: 0.6em 0; }
+  #preview code {
+    background: var(--surface);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    color: #a9dc76;
+  }
+  #preview pre {
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    margin: 0.8em 0;
+  }
+  #preview pre code { background: none; padding: 0; }
+  #preview blockquote {
+    border-left: 3px solid var(--accent);
+    margin: 0.8em 0;
+    padding: 4px 14px;
+    color: var(--text-muted);
+  }
+  #preview ul, #preview ol { padding-left: 1.5em; margin: 0.5em 0; }
+  #preview li { margin: 0.25em 0; }
+  #preview hr { border: none; border-top: 1px solid var(--border); margin: 1.2em 0; }
+  #preview table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+  #preview th, #preview td { border: 1px solid var(--border); padding: 5px 10px; font-size: 0.85em; text-align: left; }
+  #preview th { background: var(--surface); font-weight: 600; }
+  #preview tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  #preview del { color: var(--text-muted); text-decoration: line-through; }
+  #preview input[type="checkbox"] { margin-right: 5px; accent-color: var(--accent); }
+  #preview ol ol, #preview ul ul, #preview ol ul, #preview ul ol { margin: 0.1em 0; }
+  #preview a { color: var(--accent); text-decoration: none; }
+  #preview a:hover { text-decoration: underline; }
+
+  /* ── Depth-tagged block styles ───────────────────────────────────────── */
+
+  .depth-block {
+    position: relative;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .depth-block[data-visible="true"] {}
+
+  .depth-block[data-visible="false"] {
+    background: var(--hidden-bg);
+    border-left: 2px solid var(--border);
+    padding: 2px 10px;
+    opacity: 0.35;
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 0.82em;
+    cursor: default;
+    overflow: hidden;
+    max-height: 1.6em;
+  }
+  .depth-block[data-visible="false"]:hover {
+    opacity: 0.65;
+    max-height: 500px;
+  }
+
+  .depth-badge {
+    font-size: 0.62em;
+    font-weight: 700;
+    color: var(--tag-color);
+    background: rgba(250,176,5,0.12);
+    border-radius: 3px;
+    padding: 0 4px;
+    margin-left: 5px;
+    vertical-align: middle;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Drop overlay ───────────────────────────────────────────────────── */
+
+  #drop-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(116,143,252,0.15);
+    border: 3px dashed var(--accent);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: var(--accent);
+    pointer-events: none;
+  }
+  #drop-overlay.active { display: flex; }
+
+  /* ── Stats bar ───────────────────────────────────────────────────────── */
+
+  #stats {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    padding: 4px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>3DMarkdown</h1>
+
+  <div class="tb-group">
+    <button class="tb-btn" id="open-btn">
+      Open file
+      <input type="file" id="file-input" accept=".md,.3dmd,.txt" />
+    </button>
+    <button class="tb-btn" id="save-btn">Save rendered</button>
+    <span id="filename">no file loaded</span>
+  </div>
+
+  <div class="tb-group" style="margin-left: auto;">
+    <span class="tb-label">Depth:</span>
+    <button class="tb-btn" id="depth-dec" title="Decrease depth (←)">−</button>
+    <input type="range" id="depth-slider" min="1" max="9" value="9" />
+    <span id="depth-value">all</span>
+    <button class="tb-btn" id="depth-inc" title="Increase depth (→)">+</button>
+    <button class="tb-btn" id="depth-all">Show all</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="editor-pane">
+    <div class="pane-header">Source (.3dmd)</div>
+    <textarea id="editor" spellcheck="false" placeholder="Paste or drag a .3dmd / .md file here…
+
+Example:
+
+## Results
+
+We found three hits.{depth=1}
+
+{depth=2}
+CDR3 lengths ranged from 12–17 aa.
+
+{depth=3}
+Full SHAP decomposition revealed hydrophobicity as the dominant feature.
+"></textarea>
+  </div>
+
+  <div id="preview-pane">
+    <div class="pane-header">Preview</div>
+    <div id="preview"></div>
+  </div>
+</div>
+
+<div id="stats"></div>
+<div id="drop-overlay">Drop .3dmd / .md file to open</div>
+
+<script>
+// ── Markdown renderer (marked v4, GFM) ────────────────────────────────────
+
+marked.setOptions({
+  gfm: true,       // GitHub-Flavoured Markdown: tables, strikethrough, task lists
+  breaks: false,   // keep single newlines as-is (standard Markdown behaviour)
+  pedantic: false,
+  mangle: false,
+  headerIds: false,
+});
+
+function renderMarkdown(md) {
+  return marked.parse(md);
+}
+
+// ── Depth parser ──────────────────────────────────────────────────────────
+
+// Both long form {depth=N} and short form {dN}
+const BLOCK_TAG_RE  = /^\s*\{d(?:epth=)?(\d+)\}\s*$/;
+const INLINE_TAG_RE = /\{d(?:epth=)?(\d+)\}/g;
+const START_TAG_RE  = /^\s*\{(?:start\s+depth=|sd)(\d+)\}\s*$/;
+const END_TAG_RE    = /^\s*\{(?:end|e)\}\s*$/;
+
+/**
+ * Expand {start depth=N}/{sdN}...{end}/{e} regions into per-block {depth=N}
+ * tags, and pass through everything else unchanged.
+ */
+function normalizeSpanTags(source) {
+  const lines = source.split('\n');
+  const result = [];
+  let activeDepth = null;
+  let atBlockStart = true;
+  let fenceChar = null;
+  let fenceLen = 0;
+
+  for (const line of lines) {
+    const stripped = line.trim();
+
+    // Fence tracking (don't inject depth tags inside code fences)
+    if (fenceChar === null) {
+      const fm = stripped.match(/^(`{3,}|~{3,})/);
+      if (fm) {
+        fenceChar = fm[1][0];
+        fenceLen = fm[1].length;
+        result.push(line);
+        if (activeDepth !== null) atBlockStart = false;
+        continue;
+      }
+    } else {
+      const fm = stripped.match(/^(`{3,}|~{3,})$/);
+      if (fm && fm[1][0] === fenceChar && fm[1].length >= fenceLen) {
+        fenceChar = null;
+        fenceLen = 0;
+      }
+      result.push(line);
+      continue;
+    }
+
+    const startM = line.match(START_TAG_RE);
+    if (startM) {
+      activeDepth = parseInt(startM[1], 10);
+      atBlockStart = true;
+      continue;  // drop start tag line
+    }
+
+    if (END_TAG_RE.test(line)) {
+      activeDepth = null;
+      atBlockStart = true;
+      continue;  // drop end tag line
+    }
+
+    if (activeDepth !== null) {
+      if (stripped === '') {
+        atBlockStart = true;
+        result.push(line);
+      } else {
+        if (atBlockStart) {
+          result.push(`{depth=${activeDepth}}`);
+          atBlockStart = false;
+        }
+        result.push(line);
+      }
+    } else {
+      result.push(line);
+    }
+  }
+  return result.join('\n');
+}
+
+function parseAndRender(source, maxDepth) {
+  source = normalizeSpanTags(source);
+  const lines = source.split('\n');
+  const segments = [];      // {depth: number|null, text: string}
+  let pendingDepth = null;
+  let buffer = [];
+
+  function flush() {
+    if (buffer.length === 0) return;
+    segments.push({ depth: pendingDepth, text: buffer.join('\n') });
+    buffer = [];
+    pendingDepth = null;
+  }
+
+  for (const line of lines) {
+    const m = line.match(BLOCK_TAG_RE);
+    if (m) {
+      flush();
+      pendingDepth = parseInt(m[1], 10);
+    } else {
+      buffer.push(line);
+      // If we have a pending depth tag, one paragraph = one tagged block
+      // Flush on blank line after content
+      if (pendingDepth !== null && line.trim() === '' && buffer.some(l => l.trim() !== '')) {
+        flush();
+      }
+    }
+  }
+  flush();
+
+  // Build HTML
+  let html = '';
+  let hiddenCount = 0;
+  let visibleCount = 0;
+  const depthsPresent = new Set();
+
+  for (const seg of segments) {
+    if (seg.depth !== null) depthsPresent.add(seg.depth);
+
+    // Process inline depth tags within the text
+    let text = seg.text;
+    let inlineVisible = true;
+
+    if (seg.depth === null) {
+      // Check for inline tags
+      INLINE_TAG_RE.lastIndex = 0;
+      let processed = '';
+      let lastIndex = 0;
+      let match;
+      INLINE_TAG_RE.lastIndex = 0;
+      const re = /\{d(?:epth=)?(\d+)\}/g;
+      while ((match = re.exec(text)) !== null) {
+        const before = text.slice(lastIndex, match.index);
+        const d = parseInt(match[1], 10);
+        depthsPresent.add(d);
+        if (d <= maxDepth) {
+          processed += before;
+        } else {
+          // Find the preceding sentence/clause — split on ., ,
+          const truncAt = before.lastIndexOf('. ') !== -1
+            ? before.lastIndexOf('. ') + 1
+            : before.lastIndexOf(', ') !== -1
+              ? before.lastIndexOf(', ')
+              : before.length;
+          processed += before.slice(0, truncAt);
+        }
+        lastIndex = match.index + match[0].length;
+      }
+      processed += text.slice(lastIndex);
+      text = processed;
+    }
+
+    const visible = seg.depth === null || seg.depth <= maxDepth;
+
+    if (visible) {
+      visibleCount++;
+    } else {
+      hiddenCount++;
+    }
+
+    const mdHtml = renderMarkdown(text.trim());
+    if (!mdHtml.trim()) continue;
+
+    const badge = seg.depth !== null
+      ? `<span class="depth-badge">d${seg.depth}</span>`
+      : '';
+
+    html += `<div class="depth-block" data-depth="${seg.depth ?? 'null'}" data-visible="${visible}">`;
+    html += mdHtml;
+    if (seg.depth !== null) html += badge;
+    html += '</div>';
+  }
+
+  return { html, hiddenCount, visibleCount, depthsPresent: [...depthsPresent].sort((a,b)=>a-b) };
+}
+
+// ── State & DOM ────────────────────────────────────────────────────────────
+
+const editorEl   = document.getElementById('editor');
+const previewEl  = document.getElementById('preview');
+const sliderEl   = document.getElementById('depth-slider');
+const valueEl    = document.getElementById('depth-value');
+const statsEl    = document.getElementById('stats');
+const filenameEl = document.getElementById('filename');
+
+let maxDepth = 9;
+let currentFilename = null;
+
+function getMaxDepth() {
+  return maxDepth >= 9 ? Infinity : maxDepth;
+}
+
+function updateDepthDisplay() {
+  valueEl.textContent = maxDepth >= 9 ? 'all' : String(maxDepth);
+  sliderEl.value = maxDepth;
+}
+
+function refresh() {
+  const source = editorEl.value;
+  const depth = getMaxDepth();
+  const { html, hiddenCount, visibleCount, depthsPresent } = parseAndRender(source, depth);
+  previewEl.innerHTML = html;
+
+  const depthLabel = depth === Infinity ? 'all' : depth;
+  statsEl.textContent =
+    `Depth: ${depthLabel} | Visible blocks: ${visibleCount} | Hidden blocks: ${hiddenCount}` +
+    (depthsPresent.length ? ` | Depth levels in doc: ${depthsPresent.join(', ')}` : '');
+}
+
+// ── Controls ───────────────────────────────────────────────────────────────
+
+sliderEl.addEventListener('input', () => {
+  maxDepth = parseInt(sliderEl.value, 10);
+  updateDepthDisplay();
+  refresh();
+});
+
+document.getElementById('depth-dec').addEventListener('click', () => {
+  if (maxDepth > 1) { maxDepth--; updateDepthDisplay(); refresh(); }
+});
+document.getElementById('depth-inc').addEventListener('click', () => {
+  if (maxDepth < 9) { maxDepth++; updateDepthDisplay(); refresh(); }
+});
+document.getElementById('depth-all').addEventListener('click', () => {
+  maxDepth = 9; updateDepthDisplay(); refresh();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey) {
+    if (e.key === 'ArrowRight') { if (maxDepth < 9) { maxDepth++; updateDepthDisplay(); refresh(); } e.preventDefault(); }
+    if (e.key === 'ArrowLeft')  { if (maxDepth > 1) { maxDepth--; updateDepthDisplay(); refresh(); } e.preventDefault(); }
+  }
+});
+
+editorEl.addEventListener('input', refresh);
+
+// ── File open ──────────────────────────────────────────────────────────────
+
+function loadFile(file) {
+  if (!file) return;
+  currentFilename = file.name;
+  filenameEl.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    editorEl.value = e.target.result;
+    refresh();
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('file-input').addEventListener('change', e => {
+  loadFile(e.target.files[0]);
+});
+
+// ── Save ───────────────────────────────────────────────────────────────────
+
+document.getElementById('save-btn').addEventListener('click', () => {
+  const depth = getMaxDepth();
+  // Normalize span tags first, then produce flat Markdown (strip depth tags)
+  const lines = normalizeSpanTags(editorEl.value).split('\n');
+  const out = [];
+  let skip = false;
+  for (const line of lines) {
+    const m = line.match(BLOCK_TAG_RE);
+    if (m) {
+      const d = parseInt(m[1], 10);
+      skip = d > depth;
+      continue; // always drop the tag line itself
+    }
+    if (!skip) {
+      // Strip inline tags (both long and short form)
+      out.push(line.replace(/\{d(?:epth=)?\d+\}/g, ''));
+    }
+  }
+  const blob = new Blob([out.join('\n')], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const base = currentFilename ? currentFilename.replace(/\.(3dmd|md)$/, '') : 'rendered';
+  a.download = `${base}-depth${depth === Infinity ? 'all' : depth}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ── Drag and drop ──────────────────────────────────────────────────────────
+
+const dropOverlay = document.getElementById('drop-overlay');
+
+document.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropOverlay.classList.add('active');
+});
+document.addEventListener('dragleave', e => {
+  if (!e.relatedTarget) dropOverlay.classList.remove('active');
+});
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  dropOverlay.classList.remove('active');
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file);
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+updateDepthDisplay();
+refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+# 3DMarkdown (`3dmd`)
+
+> Write once at maximum resolution. Derive all shortform representations for free.
+
+**3DMarkdown** is a lightweight extension of Markdown that adds a *depth axis* to documents. Every block or inline span can be tagged with `{depth=N}`, and a renderer or editor can cut the document at any depth threshold to produce a coherent, standalone output — from a one-line abstract to a full lab notebook — from the same source file.
+
+---
+
+## Motivation
+
+Scientific writing involves producing the same content at many levels of detail: a slide headline, a PI update, a methods section, a full protocol, a raw notebook entry. Today this means copy-pasting and maintaining diverging files. 3DMarkdown treats depth as a first-class property of content, so you write at maximum granularity and derive everything else.
+
+---
+
+## Format
+
+### File extensions
+
+| Extension | Meaning |
+|-----------|---------|
+| `.md`     | Standard Markdown — depth tags are valid but optional |
+| `.3dmd`   | Explicitly depth-tagged Markdown |
+
+Both extensions are treated identically by all tooling.
+
+### Block-level depth tagging
+
+A block starting with `{depth=N}` belongs to layer N and above:
+
+```markdown
+## Results
+
+Three variable star candidates passed all photometric quality thresholds.{depth=1}
+
+{depth=2}
+Periods ranged from 1.0–5.7 d, with Lomb–Scargle false-alarm probabilities
+below 0.005 for all three candidates.
+
+{depth=3}
+Full period–luminosity regression against Gaia DR3 parallaxes revealed
+pulsation amplitude (feature importance 0.41) and B−V colour index (0.24)
+as the dominant classification predictors.
+```
+
+### Inline depth tagging
+
+Inline spans use the same syntax within a paragraph:
+
+```markdown
+We identified three transit candidates{depth=1}, all with orbital periods < 10 d{depth=2},
+of which LST-07 showed a secondary eclipse depth consistent with a stellar companion{depth=3}.
+```
+
+### Untagged content
+
+Content without a `{depth=N}` tag renders at **all** depth levels. Use this for headings, figure captions, and any content that should always appear.
+
+### Rendering semantics
+
+`render(doc, max_depth=N)` includes:
+- All untagged content
+- All blocks/spans tagged with `depth <= N`
+
+Depth does not top-out: you can have as many layers as needed. The last (highest-numbered) layer represents the maximum-detail source.
+
+### Depth conventions (suggested, not enforced)
+
+| Depth | Typical use |
+|-------|-------------|
+| 1 | One-liner / slide bullet / tweet |
+| 2 | Short summary / PI update / abstract sentence |
+| 3 | Methods overview / short report |
+| 4 | Full paper section |
+| 5+ | Lab notebook / raw notes / decision log |
+
+---
+
+## Repository layout
+
+```
+threedmd/
+├── src/threedmd/         # Core Python library
+│   ├── parser.py         # Depth-tag parser (block + inline)
+│   ├── renderer.py       # Depth-threshold renderer
+│   ├── coherence.py      # LLM-assisted coherence repair (optional)
+│   └── cli.py            # CLI entry point
+├── pandoc-filter/        # Pandoc Lua filter
+│   └── threedmd.lua
+├── obsidian-plugin/      # Obsidian plugin (TypeScript)
+│   ├── src/main.ts
+│   └── manifest.json
+├── web-editor/           # Single-page browser editor
+│   └── src/
+├── examples/             # Example .3dmd documents
+├── tests/
+└── docs/
+```
+
+---
+
+## Tooling
+
+### CLI
+
+```bash
+# Install
+pip install threedmd
+
+# Render at depth ≤ 2
+threedmd render --depth 2 experiment.3dmd
+
+# Render to stdout (pipe to pandoc)
+threedmd render --depth 2 experiment.3dmd | pandoc -o summary.pdf
+
+# Show all depth levels present in a document
+threedmd inspect experiment.3dmd
+```
+
+### Pandoc filter (recommended pipeline)
+
+```bash
+pandoc --lua-filter threedmd.lua -M depth=2 experiment.3dmd -o summary.pdf
+```
+
+This integrates cleanly into existing Pandoc/Quarto workflows with no intermediate files.
+
+### Obsidian plugin
+
+Install from the community plugins directory or manually from `obsidian-plugin/`. The plugin adds:
+
+- A **depth slider** in the reading/live-preview toolbar
+- At the selected depth, out-of-scope blocks are **dimmed** (not hidden) in edit mode and **hidden** in reading mode
+- Hovering a dimmed block reveals it temporarily — consistent with Obsidian's existing Mermaid/callout behaviour
+
+### Web editor
+
+A no-dependency single HTML file. Open any `.md` or `.3dmd` file, drag the depth slider, see a live preview. Available at `web-editor/index.html`.
+
+---
+
+## LLM-assisted authoring
+
+The `threedmd` library exposes optional Anthropic API integration for:
+
+| Task | Command |
+|------|---------|
+| Auto-tag an existing document | `threedmd autotag experiment.md` |
+| Generate missing lower-depth summaries | `threedmd summarise --target-depth 1 experiment.3dmd` |
+| Coherence repair after rendering | `threedmd repair --depth 2 experiment.3dmd` |
+
+Set `ANTHROPIC_API_KEY` in your environment. All LLM calls are optional; the core renderer has zero external dependencies.
+
+---
+
+## Comparison with prior art
+
+| System | Multi-output | Depth tagging | Inline granularity | Coherence repair |
+|--------|-------------|---------------|--------------------|------------------|
+| DITA | ✅ | ✅ (audience attr) | ⚠️ block-only | ❌ |
+| Pandoc/Quarto | ✅ (format) | ⚠️ profile-based | ❌ | ❌ |
+| TreeWriter | ⚠️ | ✅ (AI-assisted) | ❌ | ⚠️ |
+| **3DMarkdown** | ✅ | ✅ | ✅ | LLM-assisted ✅ |
+
+---
+
+## Status
+
+Early-stage. Core parser and renderer are functional. Pandoc filter is functional. Obsidian plugin and web editor are scaffolded.
+
+Contributions welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
+
+---
+
+## License
+
+MIT

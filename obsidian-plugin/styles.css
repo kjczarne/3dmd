@@ -1,0 +1,107 @@
+/* ── Reading mode: out-of-scope blocks ───────────────────────────────────────
+   The !important on max-height and overflow is needed to beat theme rules
+   that commonly reset these (e.g. `* { max-height: none }`).              */
+
+.markdown-reading-view .threedmd-hidden {
+  max-height: 1.5em !important;
+  overflow: hidden !important;
+  opacity: 0.2;
+  border-left: 2px solid var(--color-accent);
+  padding-left: 0.5em;
+  cursor: pointer;
+  transition: max-height 0.2s ease, opacity 0.15s ease;
+  font-style: italic;
+  color: var(--text-muted);
+  box-sizing: border-box;
+}
+
+.markdown-reading-view .threedmd-hidden:hover {
+  max-height: 2000px !important;
+  opacity: 0.55;
+}
+
+/* ── Live preview: depth-tag lines (faded, so they read as metadata) ─────── */
+
+.cm-line.threedmd-cm-tag {
+  opacity: 0.35;
+  color: var(--text-faint) !important;
+  font-style: italic;
+  font-size: 0.85em;
+}
+
+/* ── Live preview: lines whose depth exceeds the current threshold ────────── */
+
+.cm-line.threedmd-cm-hidden {
+  opacity: 0.2;
+  font-style: italic;
+}
+
+/* ── Inline hidden spans (reading mode + rendered output) ─────────────────── */
+
+.threedmd-inline-hidden {
+  display: none;
+}
+
+/* ── Live preview: inline {dN} tag characters — faded like metadata ──────── */
+
+.threedmd-cm-tag-inline {
+  opacity: 0.35;
+  color: var(--text-faint) !important;
+  font-style: italic;
+  font-size: 0.85em;
+}
+
+/* ── Live preview: inline text spans whose depth exceeds the threshold ───── */
+
+.threedmd-cm-inline-hidden {
+  opacity: 0.15;
+  font-style: italic;
+}
+
+/* ── PDF export: fully hide out-of-depth elements (override peek style) ──── */
+.threedmd-print-root {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 800px;
+  padding: 2em;
+}
+@media print {
+  body > *:not(.threedmd-print-root) { display: none !important; }
+  .threedmd-print-root {
+    position: static !important;
+    left: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+}
+.markdown-reading-view .threedmd-marker { display: none; }
+
+/* ── Set-depth modal ─────────────────────────────────────────────────────── */
+
+.threedmd-quick-pick {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.threedmd-quick-pick button {
+  min-width: 2.4em;
+}
+
+.threedmd-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.threedmd-input-row input[type="number"] {
+  width: 5em;
+}
+
+.threedmd-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+}

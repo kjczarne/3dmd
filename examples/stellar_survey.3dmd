@@ -1,0 +1,102 @@
+# Photometric Survey — Batch 2024-NOV
+
+## Overview
+
+Three variable star candidates passed all photometric quality thresholds.{depth=1}
+
+{depth=2}
+Batch 2024-NOV comprised 18 lightcurves extracted from the LSST DR3 pipeline
+and pre-filtered by signal-to-noise and period-folding quality cuts. Three
+candidates (LST-07, LST-11, LST-14) passed all thresholds and advance to
+spectroscopic follow-up.
+
+{depth=3}
+Lightcurves were assessed against five criteria: period significance
+(FAP < 0.01 by Lomb–Scargle), photometric amplitude (> 0.05 mag), lightcurve
+phase coverage (> 60%), colour index B−V (0.4–1.2), and source contamination
+from objects within 5 arcsec (< 5% flux contribution). Candidates failing any
+single criterion were excluded.
+
+## Results
+
+LST-07, LST-11, and LST-14 were selected for spectroscopic follow-up.{depth=1}
+
+{depth=2}
+Key metrics are summarised below. LST-07 is flagged for its period falling
+near the 1-day alias boundary; all others show comfortable margins against
+rejection criteria.
+
+{depth=3}
+| Candidate | Period (d) | Amplitude (mag) | B−V  | Coverage | Pass?      |
+|-----------|------------|-----------------|------|----------|------------|
+| LST-07    | 1.002      | 0.12            | 0.71 | 74%      | ✅          |
+| LST-08    | 0.83       | 0.03            | 0.55 | 81%      | ❌ amp     |
+| LST-11    | 3.14       | 0.28            | 0.88 | 92%      | ✅          |
+| LST-12    | 2.61       | 0.19            | 1.45 | 67%      | ❌ B−V     |
+| LST-14    | 5.72       | 0.33            | 0.94 | 88%      | ✅          |
+
+{depth=4}
+LST-08 failed on amplitude (0.03 mag < 0.05 mag threshold). The Lomb–Scargle
+power spectrum for LST-12 shows a dominant peak at 2.61 d with a secondary
+alias at 1.31 d; the B−V excess (1.45) suggests contamination from a red
+background source inside the photometric aperture. LST-07 at 1.002 d is
+within spec but the proximity to the 1-day systematic alias warrants
+independent confirmation via phase-folding on Gaia DR3 photometry.
+
+## Period–Luminosity Analysis
+
+{depth=3}
+Period–luminosity feature importance across all 18 candidates ranked:
+amplitude (0.41) > B−V colour (0.24) > period (0.19) >
+phase coverage (0.10) > contamination index (0.06).
+
+{depth=4}
+Full Lomb–Scargle periodograms and phase-folded lightcurves are archived at
+`results/ls_batch2024_NOV/`. Notable interaction: amplitude and period show
+positive covariance for candidates with P > 3 d — longer periods amplify
+intrinsic amplitude in this magnitude range. This trend was absent in
+Batch 2024-OCT and may reflect the galactic-latitude coverage of this
+particular pointing sequence.
+
+## Next Steps
+
+Advance LST-07, LST-11, LST-14 to spectroscopic follow-up.{depth=1}
+
+{depth=2}
+- Schedule 2×30 min HARPS-N observations for LST-11 and LST-14.
+- Obtain independent photometry for LST-07 to rule out the 1-day alias.
+- Submit LST-11 and LST-14 as ZTF phase-II targets for long-baseline coverage.
+
+{depth=3}
+- HARPS-N: slit 1 arcsec, R ≈ 115 000, wavelength range 383–693 nm;
+  target S/N ≥ 50 per resolution element at 550 nm.
+- LST-07 photometry: 3 nights on Las Cumbres Observatory 1 m network,
+  120 s cadence, Sloan i′ filter, 6 arcsec aperture.
+- ZTF proposal: g + r bands, 40 epochs over a 90 d baseline.
+
+{depth=4}
+HARPS-N scheduling constraint: LST-11 and LST-14 both at Dec > +20°,
+observable Oct–Mar; optimal window closes 2025-01-15 to avoid lunar
+contamination above 30% illumination. Radial-velocity precision goal:
+50 m/s (sufficient to detect a 2 M_Jup companion at P = 3 d). Data
+reduction: SERVAL pipeline, wavelength calibration via ThAr lamp and
+Fabry–Pérot etalon simultaneous reference.
+
+## Raw Observing Notes
+
+{depth=5}
+2024-11-04 22:15 UTC — Lomb–Scargle re-run at two FAP thresholds (0.01
+and 0.001). LST-12 passes at 0.01 but not 0.001; flagged as marginal.
+Jira ticket #1147 opened for pipeline review of aperture contamination
+correction.
+
+2024-11-04 23:50 UTC — LST-14 anomalous: secondary period at 11.44 d
+visible in L–S residuals after removal of primary 5.72 d signal. Not
+flagged by current pipeline. May indicate ellipsoidal variation of a
+binary companion. Need to add second-harmonic test to scoring pipeline —
+GH issue #88 opened.
+
+2024-11-05 09:30 UTC — Confirmed LST-07 alias concern with @nightshift.
+Period-folding pipeline was not validated on data with gaps > 1 d; treat
+the 1.002 d classification as provisional until independent photometry
+confirms.

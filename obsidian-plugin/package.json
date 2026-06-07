@@ -1,0 +1,19 @@
+{
+  "name": "obsidian-threedmd",
+  "version": "0.1.0",
+  "description": "3DMarkdown Obsidian plugin",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc --noEmit && esbuild src/main.ts --bundle --external:obsidian --external:@codemirror/state --external:@codemirror/view --format=cjs --platform=node --outfile=main.js",
+    "dev": "esbuild src/main.ts --bundle --external:obsidian --external:@codemirror/state --external:@codemirror/view --format=cjs --platform=node --outfile=main.js --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@codemirror/state": "6.5.0",
+    "@codemirror/view": "6.38.6",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "latest",
+    "typescript": "^5.4.0"
+  }
+}

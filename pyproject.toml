@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "threedmd"
+version = "0.1.0"
+description = "Depth-tagged Markdown: write once at maximum resolution, render at any abstraction level"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Chris" }]
+
+dependencies = [
+    "mistune>=3.0",          # Markdown AST parser
+    "click>=8.1",            # CLI
+    "rich>=13.0",            # Terminal output
+]
+
+[project.optional-dependencies]
+llm = [
+    "anthropic>=0.25",       # LLM-assisted authoring / coherence repair
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "ruff",
+    "mypy",
+]
+
+[project.scripts]
+threedmd = "threedmd.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/threedmd"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=threedmd --cov-report=term-missing -q"
