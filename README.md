@@ -4,6 +4,8 @@
 
 **3DMarkdown** is a lightweight extension of Markdown that adds a *depth axis* to documents. Every block or inline span can be tagged with `{depth=N}`, and a renderer or editor can cut the document at any depth threshold to produce a coherent, standalone output — from a one-line abstract to a full lab notebook — from the same source file.
 
+![web-editor](static/demo_web_editor.gif)
+
 ---
 
 ## Motivation
@@ -130,7 +132,8 @@ Install from the community plugins directory or manually from `obsidian-plugin/`
 
 - A **depth slider** in the reading/live-preview toolbar
 - At the selected depth, out-of-scope blocks are **dimmed** (not hidden) in edit mode and **hidden** in reading mode
-- Hovering a dimmed block reveals it temporarily — consistent with Obsidian's existing Mermaid/callout behaviour
+
+![obsidian-plugin](static/demo_obsidian_plugin.gif)
 
 ### Web editor
 
