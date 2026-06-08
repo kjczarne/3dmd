@@ -377,7 +377,7 @@ function effectiveSectionDepth(
   lines: string[],
   lineStart: number,
   lineEnd: number,
-): { hide: boolean; depth: number | null } {
+): { hide: boolean; depth: number | null; spanDepthAfter: number | null; pendingDepthAfter: number | null } {
   let pendingDepth: number | null = null;
   let spanDepth: number | null = null;
   let pendingHasContent = false;
@@ -424,8 +424,13 @@ function effectiveSectionDepth(
     else minDepth = minDepth === null ? depth : Math.min(minDepth, depth);
   }
 
-  if (!hasContent) return { hide: true, depth: null };
-  return { hide: false, depth: sawVisible ? null : minDepth };
+  // spanDepth and pendingDepth now reflect state immediately after lineEnd —
+  // returned so the caller can keep sequential fallback state in sync.
+  const spanDepthAfter    = spanDepth;
+  const pendingDepthAfter = pendingHasContent ? pendingDepth : null;
+
+  if (!hasContent) return { hide: true, depth: null, spanDepthAfter, pendingDepthAfter };
+  return { hide: false, depth: sawVisible ? null : minDepth, spanDepthAfter, pendingDepthAfter };
 }
 
 const INLINE_MARKER_RE =
@@ -542,6 +547,13 @@ export default class ThreeDMDPlugin extends Plugin {
   currentDepth!: number;
   statusBarEl: HTMLElement | null = null;
 
+  // Sequential fallback state for elements where getSectionInfo() returns null
+  // (block math, embeds, and other special Obsidian elements).  Updated every
+  // time a section *with* valid info is processed, so the state stays in sync
+  // with document order and is available for the next null-returning element.
+  private seqSpan    = new Map<string, number | null>();
+  private seqPending = new Map<string, number | null>();
+
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -600,28 +612,82 @@ export default class ThreeDMDPlugin extends Plugin {
   }
 
   private postProcess(el: HTMLElement, ctx: MarkdownPostProcessorContext): void {
+    const id   = ctx.docId;
     const info = ctx.getSectionInfo(el);
-    if (!info) { processInlineMarkers(el, this.currentDepth); return; }
 
-    const lines = info.text.split("\n");
-    const { hide, depth } = effectiveSectionDepth(lines, info.lineStart, info.lineEnd);
+    if (info) {
+      // ── Primary path: section info available ─────────────────────────────
+      const lines = info.text.split("\n");
+      const { hide, depth, spanDepthAfter, pendingDepthAfter } =
+        effectiveSectionDepth(lines, info.lineStart, info.lineEnd);
 
-    if (hide) {
-      el.classList.add("threedmd-marker");
-      el.style.display = "none";
-      return;
-    }
+      // Keep sequential state in sync so the fallback path stays accurate
+      // for any null-returning elements that follow this section in the DOM.
+      this.seqSpan.set(id, spanDepthAfter);
+      this.seqPending.set(id, pendingDepthAfter);
 
-    if (depth !== null) {
-      el.dataset.threedmdDepth = String(depth);
-      el.classList.toggle("threedmd-hidden",  depth > this.currentDepth);
-      el.classList.toggle("threedmd-visible", depth <= this.currentDepth);
+      if (hide) {
+        el.classList.add("threedmd-marker");
+        el.style.display = "none";
+        return;
+      }
+
+      if (depth !== null) {
+        el.dataset.threedmdDepth = String(depth);
+        el.classList.toggle("threedmd-hidden",  depth > this.currentDepth);
+        el.classList.toggle("threedmd-visible", depth <= this.currentDepth);
+      } else {
+        delete el.dataset.threedmdDepth;
+        el.classList.remove("threedmd-hidden", "threedmd-visible");
+      }
+
+      processInlineMarkers(el, this.currentDepth);
+
     } else {
-      delete el.dataset.threedmdDepth;
-      el.classList.remove("threedmd-hidden", "threedmd-visible");
-    }
+      // ── Fallback path: getSectionInfo() returned null ─────────────────────
+      // This happens for block math (MathJax/KaTeX), file embeds, and other
+      // special elements that Obsidian doesn't map back to source lines.
+      // Use the sequential state left by the most recent section-info-aware call.
+      const text = el.textContent?.trim() ?? "";
 
-    processInlineMarkers(el, this.currentDepth);
+      // Depth-tag and span-marker lines still produce recognisable textContent
+      // even for special elements, so check them defensively.
+      if (isSpanEnd(text)) {
+        this.seqSpan.set(id, null);
+        this.seqPending.set(id, null);
+        el.style.display = "none";
+        return;
+      }
+      const ss = parseSpanStart(text);
+      if (ss !== null) {
+        this.seqSpan.set(id, ss);
+        this.seqPending.set(id, null);
+        el.style.display = "none";
+        return;
+      }
+      const bd = parseDepthTag(text);
+      if (bd !== null) {
+        this.seqPending.set(id, bd);
+        el.style.display = "none";
+        return;
+      }
+
+      const pending = this.seqPending.get(id) ?? null;
+      const span    = this.seqSpan.get(id) ?? null;
+      const depth   = pending ?? span;
+      this.seqPending.set(id, null);   // single-block pending is consumed after one block
+
+      if (depth !== null) {
+        el.dataset.threedmdDepth = String(depth);
+        el.classList.toggle("threedmd-hidden",  depth > this.currentDepth);
+        el.classList.toggle("threedmd-visible", depth <= this.currentDepth);
+      } else {
+        delete el.dataset.threedmdDepth;
+        el.classList.remove("threedmd-hidden", "threedmd-visible");
+      }
+
+      processInlineMarkers(el, this.currentDepth);
+    }
   }
   
   setDepth(d: number): void {
