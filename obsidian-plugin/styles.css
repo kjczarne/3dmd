@@ -20,6 +20,21 @@
   opacity: 0.55;
 }
 
+/* ── Tables: overflow:hidden + max-height does not clip display:table elements
+   in browsers, so use display:none instead and restore display:table on hover. */
+
+.markdown-reading-view table.threedmd-hidden {
+  display: none !important;
+  max-height: none !important;
+  border-left: 2px solid var(--color-accent);
+}
+
+.markdown-reading-view table.threedmd-hidden:hover {
+  display: table !important;
+  max-height: none !important;
+  opacity: 0.55;
+}
+
 /* ── Live preview: depth-tag lines (faded, so they read as metadata) ─────── */
 
 .cm-line.threedmd-cm-tag {

@@ -1,7 +1,7 @@
 {
   "id": "threedmd",
   "name": "3DMarkdown",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minAppVersion": "1.4.0",
   "description": "Depth-tagged Markdown: preview your notes at any abstraction level. Write once at maximum resolution, render at any depth.",
   "author": "threedmd contributors",
