@@ -18,9 +18,7 @@ import {
   App,
   MarkdownPostProcessorContext,
   MarkdownView,
-  MarkdownRenderer,
   Modal,
-  Notice,
   Plugin,
   PluginSettingTab,
   Setting,
@@ -270,76 +268,6 @@ function addInlineMarks(
   }
 }
 
-function filterInlineForExport(line: string, maxDepth: number): string {
-  INLINE_MARKER_RE.lastIndex = 0;
-  if (!INLINE_MARKER_RE.test(line)) return line;
-  INLINE_MARKER_RE.lastIndex = 0;
-
-  const stack: number[] = [];
-  const top = (): number | null => (stack.length ? stack[stack.length - 1] : null);
-  let out = "", last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = INLINE_MARKER_RE.exec(line)) !== null) {
-    const before = line.slice(last, m.index);
-    const openD  = m[1] !== undefined ? parseInt(m[1], 10) : null;
-    const trailD = m[2] !== undefined ? parseInt(m[2], 10) : null;
-    if (trailD !== null) {
-      if (trailD <= maxDepth) out += before;            // drop text behind an out-of-depth {dN}
-    } else {
-      const d = top();
-      if (!(d !== null && d > maxDepth)) out += before;
-      if (openD !== null) stack.push(openD);
-      else if (stack.length) stack.pop();
-    }
-    last = m.index + m[0].length;
-  }
-  const d = top();
-  if (!(d !== null && d > maxDepth)) out += line.slice(last);
-  return out;
-}
-
-function filterMarkdownByDepth(source: string, maxDepth: number): string {
-  const lines = source.split("\n");
-  const out: string[] = [];
-  let pendingDepth: number | null = null;
-  let spanDepth: number | null = null;
-  let pendingHasContent = false;
-  let inFence = false, fenceChar = "", dropFence = false;
-
-  for (const raw of lines) {
-    const text = raw.trim();
-
-    if (inFence) {
-      const fm = text.match(/^(`{3,}|~{3,})$/);
-      if (!dropFence) out.push(raw);
-      if (fm && fm[1][0] === fenceChar) { inFence = false; dropFence = false; }
-      continue;
-    }
-    const open = text.match(/^(`{3,}|~{3,})/);
-    if (open) {
-      const depth = pendingDepth ?? spanDepth;
-      if (pendingDepth !== null) pendingHasContent = true;
-      inFence = true; fenceChar = open[1][0];
-      dropFence = depth !== null && depth > maxDepth;
-      if (!dropFence) out.push(raw);
-      continue;
-    }
-    if (text === "") {
-      if (pendingHasContent) { pendingDepth = null; pendingHasContent = false; }
-      out.push(raw);
-      continue;
-    }
-    const ss = parseSpanStart(text); if (ss !== null) { spanDepth = ss; continue; }
-    if (isSpanEnd(text))            { spanDepth = null; continue; }
-    const bd = parseDepthTag(text); if (bd !== null) { pendingDepth = bd; pendingHasContent = false; continue; }
-
-    const depth = pendingDepth ?? spanDepth;
-    if (pendingDepth !== null) pendingHasContent = true;
-    if (depth !== null && depth > maxDepth) continue;     // drop out-of-depth line
-    out.push(filterInlineForExport(raw, maxDepth));
-  }
-  return out.join("\n").replace(/\n{3,}/g, "\n\n");
-}
 
 /**
  * Scan a line's text for inline span markers ({sdN}/{e}) and update
@@ -590,13 +518,6 @@ export default class ThreeDMDPlugin extends Plugin {
       callback: () => this.setDepth(99),
     });
 
-    // Currently not functional, requires more work:
-    // this.addCommand({
-    //   id: "export-pdf",
-    //   name: "Export to PDF at current depth",
-    //   callback: () => this.exportToPdf(),
-    // });
-
     // Live preview
     this.registerEditorExtension(buildLivePreviewPlugin(() => this.currentDepth));
 
@@ -732,34 +653,6 @@ export default class ThreeDMDPlugin extends Plugin {
         el.classList.remove("threedmd-inline-hidden");
       }
     });
-  }
-
-  async exportToPdf(): Promise<void> {
-    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!view || !view.file) { new Notice("Open a note before exporting to PDF."); return; }
-
-    const raw  = view.editor ? view.editor.getValue() : await this.app.vault.read(view.file);
-    const fm   = raw.match(/^---\n[\s\S]*?\n---\n?/);            // skip YAML frontmatter
-    const body = fm ? raw.slice(fm[0].length) : raw;
-    const filtered = filterMarkdownByDepth(body, this.currentDepth);
-
-    const printRoot = document.body.createDiv({
-      cls: "threedmd-print-root markdown-preview-view markdown-rendered",
-    });
-
-    try {
-      await MarkdownRenderer.render(this.app, filtered, printRoot, view.file.path, this);
-      await new Promise<void>(r => setTimeout(r, 300));   // let math/embeds settle
-
-      const cleanup = () => { printRoot.remove(); window.removeEventListener("afterprint", cleanup); };
-      window.addEventListener("afterprint", cleanup);
-      window.print();                                     // user picks "Save as PDF"
-      setTimeout(cleanup, 60_000);                        // safety net if afterprint never fires
-    } catch (e) {
-      printRoot.remove();
-      new Notice("3DMarkdown: PDF export failed — see console.");
-      console.error(e);
-    }
   }
 
   updateStatusBar(): void {
